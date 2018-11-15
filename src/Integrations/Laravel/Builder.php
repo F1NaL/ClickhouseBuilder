@@ -6,6 +6,9 @@ use Illuminate\Support\Traits\Macroable;
 use Tinderbox\Clickhouse\Common\Format;
 use Tinderbox\ClickhouseBuilder\Query\BaseBuilder;
 use Tinderbox\ClickhouseBuilder\Query\Grammar;
+use Illuminate\Pagination\Paginator;
+use Illuminate\Container\Container;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class Builder extends BaseBuilder
 {
@@ -65,6 +68,59 @@ class Builder extends BaseBuilder
         } else {
             return $result[0]['count'] ?? 0;
         }
+    }
+
+    /**
+     * Paginate the given query.
+     *
+     * @param  int  $perPage
+     * @param  array  $columns
+     * @param  string  $pageName
+     * @param  int|null  $page
+     * @return \Illuminate\Contracts\Pagination\LengthAwarePaginator
+     *
+     * @throws \InvalidArgumentException
+     */
+    public function paginate($perPage = 15, $columns = ['*'], $pageName = 'page', $page = null)
+    {
+        $page = $page ?: Paginator::resolveCurrentPage($pageName);
+        
+        $results = ($total = $this->count())
+            ? $this->forPage($page, $perPage)->get($columns)
+            : $this->model->newCollection();
+
+        return $this->paginator($results, $total, $perPage, $page, [
+            'path' => Paginator::resolveCurrentPath(),
+            'pageName' => $pageName,
+        ]);
+    }
+    /**
+     * Create a new length-aware paginator instance.
+     *
+     * @param  \Illuminate\Support\Collection  $items
+     * @param  int  $total
+     * @param  int  $perPage
+     * @param  int  $currentPage
+     * @param  array  $options
+     * @return \Illuminate\Pagination\LengthAwarePaginator
+     */
+    protected function paginator($items, $total, $perPage, $currentPage, $options)
+    {
+        return Container::getInstance()->makeWith(LengthAwarePaginator::class, compact(
+            'items', 'total', 'perPage', 'currentPage', 'options'
+        ));
+    }
+
+    /**
+     * Set the limit and offset for a given page.
+     *
+     * @param  int  $page
+     * @param  int  $perPage
+     * @return \Illuminate\Database\Query\Builder|static
+     */
+    public function forPage($page, $perPage = 15)
+    {
+        return $this->limit($perPage, ($page - 1) * $perPage);
     }
 
     /**
