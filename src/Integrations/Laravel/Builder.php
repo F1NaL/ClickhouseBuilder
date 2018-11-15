@@ -87,7 +87,7 @@ class Builder extends BaseBuilder
         
         $results = ($total = $this->count())
             ? $this->forPage($page, $perPage)->get($columns)
-            : $this->model->newCollection();
+            : collect();
 
         return $this->paginator($results, $total, $perPage, $page, [
             'path' => Paginator::resolveCurrentPath(),
