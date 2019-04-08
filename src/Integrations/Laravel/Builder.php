@@ -84,7 +84,7 @@ class Builder extends BaseBuilder
     public function paginate($perPage = 15, $columns = ['*'], $pageName = 'page', $page = null)
     {
         $page = $page ?: Paginator::resolveCurrentPage($pageName);
-        
+
         $results = ($total = $this->count())
             ? $this->forPage($page, $perPage)->get($columns)
             : collect();
@@ -219,5 +219,38 @@ class Builder extends BaseBuilder
     public function delete()
     {
         return $this->connection->delete($this->grammar->compileDelete($this));
+    }
+
+    /**
+     * Creates table with memory engine if table does not exists and inserts provided data into table
+     *
+     * @param string $tableName
+     * @param        $data
+     * @param null   $columns
+     * @param string $format
+     *
+     * @return bool
+     * @throws \Tinderbox\ClickhouseBuilder\Exceptions\GrammarException
+     */
+    public function insertIntoMemory(string $tableName, $data, $columns = null, string $format = Format::CSV) : bool
+    {
+        $data = $this->prepareFile($data);
+
+        if (is_null($columns) && $data instanceof TempTable) {
+            $columns = array_keys($data->getStructure());
+        }
+
+        if (is_null($columns)) {
+            throw BuilderException::noTableStructureProvided();
+        }
+
+        $insertQuery = $this->newQuery()->table($tableName)->format($format);
+
+        $result = $this->connection->getClient()->write([
+            ['query' => $this->grammar->compileCreateMemoryTable($tableName, $columns)],
+            ['query' => $this->grammar->compileInsert($insertQuery, $columns), 'files' => [$data]],
+        ], 1);
+
+        return $result[0] && $result[1];
     }
 }
