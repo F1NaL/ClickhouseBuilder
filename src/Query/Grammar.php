@@ -174,7 +174,7 @@ class Grammar
     {
         return implode(', ', array_map(function ($value) {
             return '(' . implode(', ', array_map(function () {
-                    return '?';
+                    return "'?'";
                 }, $value)) . ')';
         }, $values));
     }
